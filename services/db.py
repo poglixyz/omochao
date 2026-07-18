@@ -24,6 +24,7 @@ def _get_conn() -> sqlite3.Connection:
             )
         """)
         _ensure_reminders_schema(_conn)
+        _ensure_rss_tables(_conn)
         _conn.commit()
     return _conn
 
@@ -91,6 +92,142 @@ def get_pending_reminders_for_user(user_id: int | str) -> list[sqlite3.Row]:
         """,
         (str(user_id),),
     ).fetchall()
+
+
+def _ensure_rss_tables(conn: sqlite3.Connection) -> None:
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS rss_subscriptions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id TEXT NOT NULL,
+            channel_id TEXT NOT NULL,
+            feed_url TEXT NOT NULL,
+            title TEXT NOT NULL,
+            created_by TEXT NOT NULL,
+            created_at REAL NOT NULL,
+            updated_at REAL NOT NULL,
+            UNIQUE(guild_id, channel_id, feed_url)
+        )
+    """)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS rss_seen_items (
+            subscription_id INTEGER NOT NULL,
+            item_key TEXT NOT NULL,
+            seen_at REAL NOT NULL,
+            PRIMARY KEY (subscription_id, item_key),
+            FOREIGN KEY (subscription_id) REFERENCES rss_subscriptions(id) ON DELETE CASCADE
+        )
+    """)
+    conn.commit()
+
+
+def add_rss_subscription(
+    guild_id: int | str,
+    channel_id: int | str,
+    feed_url: str,
+    title: str,
+    created_by: int | str,
+) -> int:
+    conn = _get_conn()
+    now = time.time()
+    conn.execute(
+        """
+        INSERT INTO rss_subscriptions (guild_id, channel_id, feed_url, title, created_by, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(guild_id, channel_id, feed_url) DO UPDATE SET
+            title = excluded.title,
+            updated_at = excluded.updated_at
+        """,
+        (str(guild_id), str(channel_id), feed_url, title, str(created_by), now, now),
+    )
+    conn.commit()
+    row = conn.execute(
+        """
+        SELECT id FROM rss_subscriptions
+        WHERE guild_id = ? AND channel_id = ? AND feed_url = ?
+        """,
+        (str(guild_id), str(channel_id), feed_url),
+    ).fetchone()
+    return int(row["id"])
+
+
+def list_rss_subscriptions(guild_id: int | str) -> list[sqlite3.Row]:
+    conn = _get_conn()
+    return conn.execute(
+        """
+        SELECT id, guild_id, channel_id, feed_url, title, created_by, created_at, updated_at
+        FROM rss_subscriptions
+        WHERE guild_id = ?
+        ORDER BY title, id
+        """,
+        (str(guild_id),),
+    ).fetchall()
+
+
+def list_all_rss_subscriptions() -> list[sqlite3.Row]:
+    conn = _get_conn()
+    return conn.execute(
+        """
+        SELECT id, guild_id, channel_id, feed_url, title, created_by, created_at, updated_at
+        FROM rss_subscriptions
+        ORDER BY id
+        """
+    ).fetchall()
+
+
+def get_rss_subscription(guild_id: int | str, subscription_id: int) -> sqlite3.Row | None:
+    conn = _get_conn()
+    return conn.execute(
+        """
+        SELECT id, guild_id, channel_id, feed_url, title, created_by, created_at, updated_at
+        FROM rss_subscriptions
+        WHERE guild_id = ? AND id = ?
+        """,
+        (str(guild_id), subscription_id),
+    ).fetchone()
+
+
+def remove_rss_subscription(guild_id: int | str, subscription_id: int) -> bool:
+    conn = _get_conn()
+    cur = conn.execute(
+        "DELETE FROM rss_subscriptions WHERE guild_id = ? AND id = ?",
+        (str(guild_id), subscription_id),
+    )
+    conn.execute(
+        "DELETE FROM rss_seen_items WHERE subscription_id = ?",
+        (subscription_id,),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def get_seen_rss_item_keys(subscription_id: int, item_keys: list[str]) -> set[str]:
+    if not item_keys:
+        return set()
+    conn = _get_conn()
+    placeholders = ",".join("?" for _ in item_keys)
+    rows = conn.execute(
+        f"""
+        SELECT item_key FROM rss_seen_items
+        WHERE subscription_id = ? AND item_key IN ({placeholders})
+        """,
+        [subscription_id, *item_keys],
+    ).fetchall()
+    return {str(row["item_key"]) for row in rows}
+
+
+def mark_rss_items_seen(subscription_id: int, item_keys: list[str]) -> None:
+    if not item_keys:
+        return
+    conn = _get_conn()
+    now = time.time()
+    conn.executemany(
+        """
+        INSERT OR IGNORE INTO rss_seen_items (subscription_id, item_key, seen_at)
+        VALUES (?, ?, ?)
+        """,
+        [(subscription_id, item_key, now) for item_key in item_keys],
+    )
+    conn.commit()
 
 
 def _ensure_user_default_lights_table() -> None:

@@ -60,7 +60,8 @@ def add_module_check(command: app_commands.Command | app_commands.Group, module:
     if module in PROTECTED_MODULES:
         return
 
-    command.add_check(module_access_check(module))
+    if hasattr(command, "add_check"):
+        command.add_check(module_access_check(module))
     for child in getattr(command, "commands", []):
         add_module_check(child, module)
 
