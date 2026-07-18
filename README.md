@@ -1,11 +1,14 @@
+
 # omochao
 
 `omochao` is a modular Python Discord bot.
 It started as a reminder bot and is designed to grow by adding new command modules.
 
-## how config works
+<img width="393" height="411" alt="image" src="https://github.com/user-attachments/assets/d2c3ca22-c2cb-46f8-9fb8-e2a3dadc8e1c" />
 
-Most local config lives in `local/`.
+## how the config works
+
+Most local config lives in `local/`, some things may still be hard-coded tho
 
 The bot will auto-create any missing local config file from its matching `.example` file on startup.
 
