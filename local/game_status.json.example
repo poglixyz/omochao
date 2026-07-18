@@ -1,0 +1,15 @@
+{
+  "minecraft": [
+    {
+      "name": "Example Server",
+      "host": "mc.example.com",
+      "port": 25565
+    }
+  ],
+  "tarkov": [
+    {
+      "name": "Example Tarkov",
+      "url": "https://example.com:6969/"
+    }
+  ]
+}

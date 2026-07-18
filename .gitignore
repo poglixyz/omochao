@@ -1,0 +1,9 @@
+.env
+omochao.service
+__pycache__/
+*.pyc
+*.db
+*.db.bak-*
+local/*.txt
+local/*.json
+!local/*.example

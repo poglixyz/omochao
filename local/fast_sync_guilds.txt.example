@@ -1,0 +1,3 @@
+# one guild id per line
+# leave empty to skip fast per-guild slash-command sync
+# 123091283091823098
