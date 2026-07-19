@@ -84,20 +84,21 @@ def setup(tree: app_commands.CommandTree, bot: discord.Client) -> None:
 
     @tree.command(name="remind", description="Set a reminder — fires as a DM with optional configured light flash")
     @app_commands.describe(
-        time="When to fire: plain minutes (10), or 30m / 1h / 1h30m / 90s",
+        delay_text="When to fire: plain minutes (10), or 30m / 1h / 1h30m / 90s",
         message="What to remind you about",
         flash="Flash the target user's configured light when it fires (default: on)",
     )
+    @app_commands.rename(delay_text="time")
     async def remind(
         interaction: discord.Interaction,
-        time: str,
+        delay_text: str,
         message: str,
         flash: bool = True,
     ) -> None:
-        minutes = parse_minutes(time)
+        minutes = parse_minutes(delay_text)
         if minutes is None or minutes <= 0:
             await interaction.response.send_message(
-                f"couldn't parse `{time}` — try `10`, `30m`, `1h`, `1h30m`, `90s`",
+                f"couldn't parse `{delay_text}` — try `10`, `30m`, `1h`, `1h30m`, `90s`",
                 ephemeral=True,
             )
             return
